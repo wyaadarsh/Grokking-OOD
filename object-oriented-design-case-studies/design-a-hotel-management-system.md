@@ -119,236 +119,264 @@ Here is the high-level definition for the classes described above.
 
 **Enums, data types, and constants:** Here are the required enums, data types, and constants:
 
-```python
-from enum import Enum
+```java
+
+public enum RoomStyle {
+    STANDARD, DELUXE, FAMILY_SUITE, BUSINESS_SUITE
+}
+
+public enum RoomStatus {
+    AVAILABLE, RESERVED, OCCUPIED, NOT_AVAILABLE, BEING_SERVICED, OTHER
+}
+
+@Entity
+public class Address {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String street;
+    private String city;
+    private String state;
+    private String zipCode;
+    private String country;
+}
+
+@Entity
+public class Account {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
+    private String accountId;
+    private String password;
+
+    @Enumerated(EnumType.STRING)
+    private AccountStatus status;
+}
+
+@Entity
+@Inheritance(strategy = InheritanceType.TABLE_PER_CLASS)
+public abstract class Person {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String name;
+
+    @OneToOne(cascade = CascadeType.ALL)
+    private Address address;
+
+    private String email;
+    private String phone;
+
+    @ManyToOne
+    private Account account;
+}
+
+@Entity
+public class Guest extends Person {
+    private int totalRoomsCheckedIn;
+
+    @OneToMany(mappedBy = "guest", cascade = CascadeType.ALL)
+    private List<RoomBooking> bookings;
+}
+
+@Entity
+public class Receptionist extends Person {
+    @OneToMany(mappedBy = "receptionist", cascade = CascadeType.ALL)
+    private List<RoomBooking> bookings;
+}
+
+@Entity
+public class Server extends Person {
+    @OneToMany(mappedBy = "server", cascade = CascadeType.ALL)
+    private List<RoomCharge> roomCharges;
+}
+
+@Entity
+public class HotelLocation {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String name;
+
+    @OneToOne(cascade = CascadeType.ALL)
+    private Address location;
+
+    @OneToMany(mappedBy = "location", cascade = CascadeType.ALL)
+    private List<Room> rooms;
+}
+
+@Entity
+public class Hotel {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String name;
+
+    @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL)
+    private List<HotelLocation> locations;
+}
 
-class RoomStyle(Enum):
-    STANDARD, DELUXE, FAMILY_SUITE, BUSINESS_SUITE = 1, 2, 3, 4
+@Entity
+public class Room {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
+    private int roomNumber;
 
-class RoomStatus(Enum):
-    AVAILABLE, RESERVED, OCCUPIED, NOT_AVAILABLE, BEING_SERVICED, OTHER = 1, 2, 3, 4, 5, 6
+    @Enumerated(EnumType.STRING)
+    private RoomStyle style;
 
+    @Enumerated(EnumType.STRING)
+    private RoomStatus status;
 
-class BookingStatus(Enum):
-    REQUESTED, PENDING, CONFIRMED, CHECKED_IN, CHECKED_OUT, CANCELLED, ABANDONED = 1, 2, 3, 4, 5, 6, 7
+    private double bookingPrice;
+    private boolean isSmoking;
 
+    @ManyToOne
+    private HotelLocation location;
 
-class AccountStatus(Enum):
-    ACTIVE, CLOSED, CANCELED, BLACKLISTED, BLOCKED = 1, 2, 3, 4, 5
+    @OneToMany(mappedBy = "room", cascade = CascadeType.ALL)
+    private List<RoomKey> keys;
 
+    @OneToMany(mappedBy = "room", cascade = CascadeType.ALL)
+    private List<RoomHouseKeeping> houseKeepingLog;
 
-class AccountType(Enum):
-    MEMBER, GUEST, MANAGER, RECEPTIONIST = 1, 2, 3, 4
+    @OneToMany(mappedBy = "room", cascade = CascadeType.ALL)
+    private List<RoomBooking> bookings;
+}
 
+@Entity
+public class RoomKey {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-class PaymentStatus(Enum):
-    UNPAID, PENDING, COMPLETED, FILLED, DECLINED, CANCELLED, ABANDONED, SETTLING, SETTLED, REFUNDED = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+    private String barcode;
+    private boolean isActive;
+    private boolean isMaster;
 
+    @ManyToOne
+    private Room room;
+}
 
-class Address:
-    def __init__(self, street, city, state, zip_code, country):
-        self.__street_address = street
-        self.__city = city
-        self.__state = state
-        self.__zip_code = zip_code
-        self.__country = country
+@Entity
+public class RoomHouseKeeping {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
+    private String description;
+    private LocalDateTime startDateTime;
+    private int duration;
 
-```
+    @ManyToOne
+    private Room room;
+}
 
-**Account, Person, Guest, Receptionist, and Server:** These classes represent the different people that interact with our system:
+@Entity
+public class RoomBooking {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-```python
-from abc import ABC
-from .constants import *
+    private String reservationNumber;
+    private LocalDateTime startDate;
+    private int durationInDays;
 
+    @Enumerated(EnumType.STRING)
+    private BookingStatus status;
 
-# For simplicity, we are not defining getter and setter functions. The reader can
-# assume that all class attributes are private and accessed through their respective
-# public getter methods and modified only through their public methods function.
+    @ManyToOne
+    private Guest guest;
 
-class Account:
-    def __init__(self, id, password, status=AccountStatus.Active):
-        self.__id = id
-        self.__password = password
-        self.__status = status
+    @ManyToOne
+    private Room room;
 
-    def reset_password(self):
-        None
+    @OneToOne(mappedBy = "booking", cascade = CascadeType.ALL)
+    private Invoice invoice;
 
+    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL)
+    private List<Notification> notifications;
+}
 
-# from abc import ABC, abstractmethod
-class Person(ABC):
-    def __init__(self, name, address, email, phone, account):
-        self.__name = name
-        self.__address = address
-        self.__email = email
-        self.__phone = phone
-        self.__account = account
+@Entity
+public class RoomCharge {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
+    private LocalDateTime issueAt;
 
-class Guest(Person):
-    def __init__(self):
-        self.__total_rooms_checked_in = 0
+    @Enumerated(EnumType.STRING)
+    private PaymentStatus paymentStatus;
 
-    def get_bookings(self):
-        None
+    @ManyToOne
+    private RoomBooking booking;
+}
 
+@Entity
+public class Invoice {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-class Receptionist(Person):
-    def search_member(self, name):
-        None
+    @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL)
+    private List<InvoiceItem> items;
+}
 
-    def create_booking(self):
-        None
+@Entity
+public class InvoiceItem {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
+    private String description;
+    private double amount;
 
-class Server(Person):
-    def add_room_charge(self, room, room_charge):
-        None
+    @ManyToOne
+    private Invoice invoice;
+}
 
-```
+@Entity
+public class Notification {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-**Hotel and HotelLocation:** These classes represent the top-level classes of the system:
+    private String message;
+    private LocalDateTime sentAt;
 
-```python
-class HotelLocation:
-    def __init__(self, name, address):
-        self.__name = name
-        self.__location = address
+    @ManyToOne
+    private RoomBooking booking;
+}
 
-    def get_rooms(self):
-        None
+@Repository
+public interface GuestRepository extends JpaRepository<Guest, Long> {
+}
 
+@Repository
+public interface RoomRepository extends JpaRepository<Room, Long> {
+}
 
-class Hotel:
-    def __init__(self, name):
-        self.__name = name
-        self.__locations = []
+@Service
+public class GuestService {
+    @Autowired
+    private GuestRepository guestRepository;
 
-    def add_location(self, location):
-        None
+}
 
-```
+@Service
+public class RoomService {
+    @Autowired
+    private RoomRepository roomRepository;
 
-**Room, RoomKey, and RoomHouseKeeping:** To encapsulate a room, room key, and housekeeping:
-
-```python
-from datetime import datetime
-from abc import ABC
-
-
-class Search(ABC):
-    def search(self, style, start_date, duration):
-        None
-
-
-class Room(Search):
-    def __init__(self, room_number, room_style, status, price, is_smoking):
-        self.__room_number = room_number
-        self.__style = room_style
-        self.__status = status
-        self.__booking_price = price
-        self.__is_smoking = is_smoking
-
-        self.__keys = []
-        self.__house_keeping_log = []
-
-    def is_room_available(self):
-        None
-
-    def check_in(self):
-        None
-
-    def check_out(self):
-        None
-
-    def search(self, style, start_date, duration):
-        None
-
-
-# return all rooms with the given style and availability
-
-
-class RoomKey:
-    def __init__(self, key_id, barcode, is_active, is_master):
-        self.__key_id = key_id
-        self.__barcode = barcode
-        self.__issued_at = datetime.date.today()
-        self.__active = is_active
-        self.__is_master = is_master
-
-    def assign_room(self, room):
-        None
-
-    def is_active(self):
-        None
-
-
-class RoomHouseKeeping:
-    def __init__(self, description, duration, house_keeper):
-        self.__description = description
-        self.__start_datetime = datetime.date.today()
-        self.__duration = duration
-        self.__house_keeper = house_keeper
-
-    def add_house_keeping(self, room):
-        None
-
-```
-
-**RoomBooking and RoomCharge:** To encapsulate a booking and different charges against a booking:
-
-```python
-from datetime import datetime
-from abc import ABC
-
-
-class RoomBooking:
-    def __init__(self, reservation_number, start_date, duration_in_days, booking_status):
-        self.__reservation_number = reservation_number
-        self.__start_date = start_date
-        self.__duration_in_days = duration_in_days
-        self.__status = booking_status
-        self.__checkin = None
-        self.__checkout = None
-
-        self.__guest_id = 0
-        self.__room = None
-        self.__invoice = None
-        self.__notifications = []
-
-    def fetch_details(self, reservation_number):
-        None
-
-
-# from abc import ABC, abstractmethod
-class RoomCharge(ABC):
-    def __init__(self):
-        self.__issue_at = datetime.date.today()
-
-    def add_invoice_item(self, invoice):
-        None
-
-
-class Amenity(RoomCharge):
-    def __init__(self, name, description):
-        self.__name = name
-        self.__description = description
-
-
-class RoomService(RoomCharge):
-    def __init__(self, is_chargeable, request_time):
-        self.__is_chargeable = is_chargeable
-        self.__request_time = request_time
-
-
-class KitchenService(RoomCharge):
-    def __init__(self, description):
-        self.__description = description
-
+}
 ```
 
 
